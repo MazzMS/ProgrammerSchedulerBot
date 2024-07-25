@@ -2,13 +2,14 @@ import { readdir } from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'bun';
 import { Client, Collection, Events, GatewayIntentBits } from 'discord.js';
+import { sequelize } from '../data/database';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = path.dirname(path.dirname(__filename)); // First dirname gets 'core' directory
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
-client.once(Events.ClientReady, readyClient => {
+client.once(Events.ClientReady, async readyClient => {
 	console.log(`Ready! Logged in as ${readyClient.user.tag}`);
 });
 
@@ -56,6 +57,8 @@ client.on(Events.InteractionCreate, async interaction => {
 		}
 	}
 });
+
+
 
 loadCommands().then(() => {
 	client.login(process.env.DISCORD_TOKEN);

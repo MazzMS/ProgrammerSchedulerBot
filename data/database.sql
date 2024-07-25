@@ -1,0 +1,18 @@
+CREATE TABLE users(
+	id SERIAL PRIMARY KEY,
+	name VARCHAR(255) NOT NULL,
+);
+
+CREATE TABLE task_types(
+	id SERIAL PRIMARY KEY,
+	name VARCHAR(255) NOT NULL,
+);
+
+CREATE TABLE tasks(
+	id SERIAL PRIMARY KEY,
+	name VARCHAR(255) NOT NULL,
+	completed BOOLEAN NOT NULL DEFAULT FALSE,
+	task_type INT REFERENCES task_types,
+	user INT REFERENCES users,
+	due_date DATE NOT NULL, 
+);
