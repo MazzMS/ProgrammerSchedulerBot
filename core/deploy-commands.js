@@ -6,7 +6,7 @@ import { fileURLToPath } from 'bun';
 const commands = [];
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = path.dirname(path.dirname(__filename)); // First dirname gets 'core' directory
 
 async function loadCommands() {
 	const foldersPath = path.join(__dirname, 'commands');

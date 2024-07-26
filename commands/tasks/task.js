@@ -1,4 +1,4 @@
-import { SlashCommandBuilder } from "discord.js";
+import { quote, SlashCommandBuilder, time, TimestampStyles } from "discord.js";
 import { getTaskTypes, sequelize } from "../../data/database";
 import { Op } from "sequelize";
 
@@ -65,7 +65,7 @@ export async function execute(interaction) {
 
 	if (subcommandGroup) {
 		if (subcommandGroup === 'get') {
-			if (subcommand === 'due'){
+			if (subcommand === 'due') {
 				await getTasks(
 					interaction,
 					interaction.options.getBoolean('order', false),
@@ -73,46 +73,80 @@ export async function execute(interaction) {
 					false
 				)
 			}
-			if (subcommand === 'today'){
+			if (subcommand === 'today') {
 				await getTasks(interaction)
 			}
 		}
 	} else {
-		await addTasks(interaction)
+		await addTask(interaction)
 	}
 }
 
-async function getTasks(interaction, sort=false, days=0, showCompleted=true){
+async function getTasks(interaction, sort = false, days = 0, showCompleted = true) {
 	const user = await checkUser(interaction.user);
-	const dueDate = new Date()
-	dueDate.setDate(dueDate.getDate() - days)
+	const today = new Date();
+	const dueDate = new Date();
+	dueDate.setHours(0, 0, 0, 0);
+	today.setHours(0, 0, 0, 0);
+	dueDate.setDate(dueDate.getDate() - days);
 
+
+	const order = sort ? 'DESC' : 'ASC';
 
 	const whereClause = {
-		where: {
-			userId: user.id,
-			dueDate: { [Op.gte]: dueDate }
+		userId: user.id,
+		dueDate: {
+			[Op.and]: {
+				[Op.gte]: dueDate,
+				[Op.lte]: today
+			}
 		}
 	}
-	if (showCompleted){
-		whereClause['completed'] = !showCompleted
+
+	// If only show uncompleted tasks, filter by ´completed: false´
+	if (!showCompleted) {
+		whereClause['completed'] = false
 	}
-	const tasks = sequelize.models.Task.findAll({ 
-		whereClause,
-	})
+
+	try {
+		const tasks = await sequelize.models.Task.findAll({
+			where: whereClause,
+			order: [['dueDate', order]],
+			limit: 20
+		})
+
+		if (tasks.length === 0) {
+			await interaction.reply('You have no pending tasks.');
+			return;
+		}
+
+		await interaction.reply('# Here are your pending tasks:');
+
+		for (const task of tasks) {
+			const dateString = time(task.dueDate, TimestampStyles.RelativeTime)
+			await interaction.channel.send({
+				content: `## ${task.name}\nDue on: ${dateString}`,
+			});
+		}
+	} catch (err) {
+		console.error('Error listing tasks:', err);
+		await interaction.reply('An error occurred while listing your tasks.');
+	}
 
 }
 
-async function addTasks(interaction){
+async function addTask(interaction) {
 	// User data
 	const user = await checkUser(interaction.user);
 
 	// Task data
-	const taskType = interaction.options.getString('task_type')
-	const taskName = interaction.options.getString('task_name')
-	const days = interaction.options.getNumber('due')
-	const dueDate = new Date()
-	dueDate.setDate(dueDate.getDate() + days)
+	const taskType = interaction.options.getString('task_type');
+	const taskName = interaction.options.getString('task_name');
+	const days = interaction.options.getNumber('due_in');
+	console.log('Days:', days);
+	const dueDate = new Date();
+	dueDate.setHours(0, 0, 0, 0);
+	dueDate.setDate(dueDate.getDate() + days);
 
 	// Add task
 	const task = await sequelize.models.Task.create({
@@ -125,18 +159,18 @@ async function addTasks(interaction){
 	interaction.reply(`You have added this task: ${task.name}`)
 }
 
-async function checkUser(user){
+async function checkUser(user) {
 	// User data
 	const name = user.username;
 	const id = user.id;
 
-	const [user, created] = await sequelize.models.User.findOrCreate({
+	const [userRegistered, created] = await sequelize.models.User.findOrCreate({
 		where: { discord_id: id, name: name }
 	})
 
 	if (!created) {
-		console.log(`A new user named ${name} was added to the database.`)
+		console.log(`A new user named ${name}${id} was added to the database.`)
 	}
 
-	return user
+	return userRegistered
 }
